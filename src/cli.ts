@@ -14,14 +14,17 @@ async function main() {
 
     qualifyingClusters.forEach((cluster, index) => {
       const first = cluster[0];
-      const timeStr = first.startsAt.toLocaleString();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const d = first.startsAt;
+      const timeStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       
       console.log(`Cluster ${index + 1} (Total: ${cluster.length} alerts) - Started at: ${timeStr}`);
       console.log(`Status: GANGGUAN MASSAL`);
       console.log(`Members:`);
       
       cluster.forEach(alert => {
-        const alertTime = alert.startsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const ad = alert.startsAt;
+        const alertTime = `${pad(ad.getHours())}:${pad(ad.getMinutes())}:${pad(ad.getSeconds())}`;
         const labelsStr = Object.entries(alert.labels)
           .filter(([key]) => key !== "alertname") // hide redundant alertname
           .map(([key, val]) => `${key}: ${val}`)
