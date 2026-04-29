@@ -65,7 +65,6 @@ function buildClusters(alerts: ParsedAlert[]): ParsedAlert[][] {
 
 export async function getClusteredAlerts(): Promise<{
   clusters: ParsedAlert[][];
-  operator: string;
 }> {
   const karmaUrl = Bun.env.KARMA_URL ?? DEFAULT_KARMA_URL;
 
@@ -76,26 +75,36 @@ export async function getClusteredAlerts(): Promise<{
 
   const data = (await response.json()) as KarmaResponse;
   const groups = Object.values(data.groups ?? {});
-  const operator =
-    groups.find((group) => group.shared?.labels?.operator)?.shared?.labels?.operator ??
-    "unknown";
 
-  const alerts: ParsedAlert[] = [];
+  const alertsByOperator: Record<string, ParsedAlert[]> = {};
   for (const group of groups) {
     for (const alert of group.alerts ?? []) {
-      alerts.push({
+      const labels = { ...(group.shared?.labels ?? {}), ...(alert.labels ?? {}) };
+      const operator = labels.operator ?? "unknown";
+      
+      if (!alertsByOperator[operator]) {
+        alertsByOperator[operator] = [];
+      }
+      
+      alertsByOperator[operator].push({
         startsAt: new Date(alert.startsAt),
-        labels: { ...(group.shared?.labels ?? {}), ...(alert.labels ?? {}) },
+        labels,
       });
     }
   }
 
-  return { clusters: buildClusters(alerts), operator };
+  const allClusters: ParsedAlert[][] = [];
+  for (const operator in alertsByOperator) {
+    const operatorClusters = buildClusters(alertsByOperator[operator]);
+    allClusters.push(...operatorClusters);
+  }
+
+  return { clusters: allClusters };
 }
 
 export async function buildMetrics(): Promise<string> {
   const minGroupSize = Number(Bun.env.MIN_GROUP_SIZE ?? String(DEFAULT_MIN_GROUP_SIZE));
-  const { clusters, operator } = await getClusteredAlerts();
+  const { clusters } = await getClusteredAlerts();
 
   const qualifyingClusters = clusters.filter((cluster) => cluster.length > minGroupSize);
 
@@ -106,6 +115,7 @@ export async function buildMetrics(): Promise<string> {
 
   for (const cluster of qualifyingClusters) {
     const first = cluster[0];
+    const operator = first.labels.operator ?? "unknown";
     lines.push(
       `fttx_mass_outage_active{operator="${escapeLabelValue(operator)}",started_at="${escapeLabelValue(formatStartedAt(first.startsAt))}"} 1`,
     );

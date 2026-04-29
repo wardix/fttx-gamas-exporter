@@ -17,8 +17,9 @@ async function main() {
       const pad = (n: number) => String(n).padStart(2, "0");
       const d = first.startsAt;
       const timeStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      const operator = first.labels.operator ?? "unknown";
       
-      console.log(`Cluster ${index + 1} (Total: ${cluster.length} alerts) - Started at: ${timeStr}`);
+      console.log(`Cluster ${index + 1} [${operator}] (Total: ${cluster.length} alerts) - Started at: ${timeStr}`);
       console.log(`Status: GANGGUAN MASSAL`);
       console.log(`Members:`);
       
