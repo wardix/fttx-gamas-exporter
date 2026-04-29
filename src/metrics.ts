@@ -5,18 +5,18 @@ type KarmaResponse = {
 type Group = {
   alerts?: Alert[];
   shared?: {
-    labels?: {
-      operator?: string;
-    };
+    labels?: Record<string, string>;
   };
 };
 
 type Alert = {
   startsAt: string;
+  labels: Record<string, string>;
 };
 
-type ParsedAlert = {
+export type ParsedAlert = {
   startsAt: Date;
+  labels: Record<string, string>;
 };
 
 const DEFAULT_KARMA_URL =
@@ -63,9 +63,11 @@ function buildClusters(alerts: ParsedAlert[]): ParsedAlert[][] {
   return clusters;
 }
 
-export async function buildMetrics(): Promise<string> {
+export async function getClusteredAlerts(): Promise<{
+  clusters: ParsedAlert[][];
+  operator: string;
+}> {
   const karmaUrl = Bun.env.KARMA_URL ?? DEFAULT_KARMA_URL;
-  const minGroupSize = Number(Bun.env.MIN_GROUP_SIZE ?? String(DEFAULT_MIN_GROUP_SIZE));
 
   const response = await fetch(karmaUrl);
   if (!response.ok) {
@@ -81,11 +83,20 @@ export async function buildMetrics(): Promise<string> {
   const alerts: ParsedAlert[] = [];
   for (const group of groups) {
     for (const alert of group.alerts ?? []) {
-      alerts.push({ startsAt: new Date(alert.startsAt) });
+      alerts.push({
+        startsAt: new Date(alert.startsAt),
+        labels: { ...(group.shared?.labels ?? {}), ...(alert.labels ?? {}) },
+      });
     }
   }
 
-  const clusters = buildClusters(alerts);
+  return { clusters: buildClusters(alerts), operator };
+}
+
+export async function buildMetrics(): Promise<string> {
+  const minGroupSize = Number(Bun.env.MIN_GROUP_SIZE ?? String(DEFAULT_MIN_GROUP_SIZE));
+  const { clusters, operator } = await getClusteredAlerts();
+
   const qualifyingClusters = clusters.filter((cluster) => cluster.length > minGroupSize);
 
   const lines = [
