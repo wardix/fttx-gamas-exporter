@@ -17,6 +17,7 @@ type Alert = {
 export type ParsedAlert = {
   startsAt: Date;
   labels: Record<string, string>;
+  sharedLabels: Record<string, string>;
 };
 
 const DEFAULT_KARMA_URL =
@@ -89,6 +90,7 @@ export async function getClusteredAlerts(): Promise<{
       alertsByOperator[operator].push({
         startsAt: new Date(alert.startsAt),
         labels,
+        sharedLabels: group.shared?.labels ?? {},
       });
     }
   }
@@ -116,8 +118,16 @@ export async function buildMetrics(): Promise<string> {
   for (const cluster of qualifyingClusters) {
     const first = cluster[0];
     const operator = first.labels.operator ?? "unknown";
+    const allLabels = { ...first.sharedLabels, operator };
+    
+    const metricLabels = Object.entries(allLabels)
+      .filter(([k]) => k !== "alertname" && k !== "severity")
+      .map(([k, v]) => `${k}="${escapeLabelValue(v)}"`);
+    
+    metricLabels.push(`started_at="${escapeLabelValue(formatStartedAt(first.startsAt))}"`);
+    
     lines.push(
-      `fttx_mass_outage_active{operator="${escapeLabelValue(operator)}",started_at="${escapeLabelValue(formatStartedAt(first.startsAt))}"} 1`,
+      `fttx_mass_outage_active{${metricLabels.join(",")}} 1`,
     );
   }
 
