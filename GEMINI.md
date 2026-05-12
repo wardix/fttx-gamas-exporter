@@ -42,6 +42,7 @@ cp .env.example .env # Then edit .env with your configuration
 - `KARMA_URL`: URL to the Karma alerts JSON endpoint.
 - `THRESHOLD_MINUTES`: Maximum time gap (in minutes) between alerts to be considered part of the same cluster (default: `2`).
 - `MIN_GROUP_SIZE`: Minimum number of alerts in a cluster to qualify as a mass outage (default: `15`).
+- `MAX_ALERT_AGE_DAYS`: Maximum age of alerts (in days) to be considered for clustering (default: `7`).
 
 ## Development Conventions
 - **Runtime:** Leverage Bun's native APIs (`Bun.env`, `Bun.serve`, `fetch`) where possible.

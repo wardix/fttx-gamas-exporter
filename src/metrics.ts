@@ -24,6 +24,7 @@ const DEFAULT_KARMA_URL =
   "https://nmx.example.com/karma/alerts.json?q=alertname%3Dfttx%20subscriber%20offline";
 const DEFAULT_THRESHOLD_MINUTES = 2;
 const DEFAULT_MIN_GROUP_SIZE = 15;
+const DEFAULT_MAX_ALERT_AGE_DAYS = 7;
 
 function escapeLabelValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
@@ -68,6 +69,9 @@ export async function getClusteredAlerts(): Promise<{
   clusters: ParsedAlert[][];
 }> {
   const karmaUrl = Bun.env.KARMA_URL ?? DEFAULT_KARMA_URL;
+  const maxAgeDays = Number(Bun.env.MAX_ALERT_AGE_DAYS ?? String(DEFAULT_MAX_ALERT_AGE_DAYS));
+  const now = Date.now();
+  const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
 
   const response = await fetch(karmaUrl);
   if (!response.ok) {
@@ -80,6 +84,13 @@ export async function getClusteredAlerts(): Promise<{
   const alertsByOperator: Record<string, ParsedAlert[]> = {};
   for (const group of groups) {
     for (const alert of group.alerts ?? []) {
+      const startsAt = new Date(alert.startsAt);
+      
+      // Filter by age
+      if (now - startsAt.getTime() > maxAgeMs) {
+        continue;
+      }
+
       const labels = { ...(group.shared?.labels ?? {}), ...(alert.labels ?? {}) };
       const operator = labels.operator ?? "unknown";
       
@@ -88,7 +99,7 @@ export async function getClusteredAlerts(): Promise<{
       }
       
       alertsByOperator[operator].push({
-        startsAt: new Date(alert.startsAt),
+        startsAt,
         labels,
         sharedLabels: group.shared?.labels ?? {},
       });
